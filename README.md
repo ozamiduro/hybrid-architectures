@@ -1,0 +1,1 @@
+minikube start -p course --driver=docker

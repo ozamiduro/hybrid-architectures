@@ -1,0 +1,66 @@
+services:
+  orion-onprem-front:
+    build: ./onprem-front
+    container_name: orion-onprem-front
+    networks:
+      net-onprem:
+        ipv4_address: 10.10.0.11
+    depends_on:
+      - orion-api
+
+  orion-onprem-client:
+    build: ./onprem
+    container_name: orion-onprem-client
+    environment:
+      APP_ENV: ${APP_ENV:-staging}
+      AWS_API_HOST: ${AWS_API_HOST:-orion-api}
+      AWS_API_PORT: ${AWS_API_PORT:-80}
+      AWS_GATEWAY_HOST: ${AWS_GATEWAY_HOST:-orion-gateway}
+      RTO_SECONDS: ${RTO_SECONDS:-15}
+    networks:
+      net-onprem:
+        ipv4_address: 10.10.0.10
+    depends_on:
+      - orion-api
+
+  orion-api:
+    build: ./aws-api
+    container_name: orion-aws-api
+    networks:
+      net-aws:
+        ipv4_address: 10.20.0.10
+      net-onprem:
+        ipv4_address: 10.10.0.20
+
+  orion-gateway:
+    image: nginx:alpine
+    container_name: orion-gateway
+    ports:
+      - "8080:80"
+    volumes:
+      - ./aws-gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      net-aws:
+        ipv4_address: 10.20.0.20
+      net-onprem:
+        ipv4_address: 10.10.0.21
+    depends_on:
+      - orion-api
+      - orion-onprem-front
+
+networks:
+  net-onprem:
+    name: net-onprem
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/16
+          gateway: 10.10.0.1
+
+  net-aws:
+    name: net-aws
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.0.0/16
+          gateway: 10.20.0.1
