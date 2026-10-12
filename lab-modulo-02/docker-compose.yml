@@ -1,0 +1,114 @@
+name: techstore
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: techstore-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-techstore}
+      POSTGRES_USER: ${DB_USER:-techstore}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-techstore_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-techstore} -d ${DB_NAME:-techstore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - techstore-net
+
+  product-service:
+    build:
+      context: ./product-service
+    image: ${DOCKER_ID:-local}/techstore-product-service:${IMAGE_TAG:-v1.0.0}
+    container_name: techstore-product-service
+    environment:
+      SERVER_PORT: 8081
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-techstore}
+      DB_USER: ${DB_USER:-techstore}
+      DB_PASSWORD: ${DB_PASSWORD:-techstore_dev}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q 'UP'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    cpus: 1.0
+    mem_limit: 512m
+    networks:
+      - techstore-net
+
+  order-service:
+    build:
+      context: ./order-service
+    image: ${DOCKER_ID:-local}/techstore-order-service:${IMAGE_TAG:-v1.0.0}
+    container_name: techstore-order-service
+    environment:
+      SERVER_PORT: 8082
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-techstore}
+      DB_USER: ${DB_USER:-techstore}
+      DB_PASSWORD: ${DB_PASSWORD:-techstore_dev}
+      PRODUCT_SERVICE_URL: http://product-service:8081
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      product-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q 'UP'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    cpus: 1.0
+    mem_limit: 512m
+    networks:
+      - techstore-net
+
+  web-app:
+    build:
+      context: ./web-app
+      args:
+        VITE_PRODUCT_API_URL: http://localhost:8081
+        VITE_ORDER_API_URL: http://localhost:8082
+    image: ${DOCKER_ID:-local}/techstore-web-app:${IMAGE_TAG:-v1.0.0}
+    container_name: techstore-web-app
+    ports:
+      - "3000:80"
+    depends_on:
+      product-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ | grep -q 'TechStore'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    cpus: 0.5
+    mem_limit: 128m
+    networks:
+      - techstore-net
+
+networks:
+  techstore-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
