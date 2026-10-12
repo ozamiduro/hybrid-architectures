@@ -1,0 +1,54 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: eks-lab-tec # Nombre de tu clúster
+  region: us-east-2 # Región donde se desplegará (Norte de Virginia)
+  version: "1.35" # Versión de Kubernetes
+
+# ======================
+# IAM OIDC Provider (CRÍTICO)
+# ======================
+iam:
+  withOIDC: true # OBLIGATORIO. Permite que los pods (como el Ingress Controller o el EBS CSI) asuman roles de IAM de AWS directamente usando ServiceAccounts.
+
+# ======================
+# Grupos de Nodos (Worker Nodes)
+# ======================
+managedNodeGroups:
+  - name: workers-spot
+    instanceType: t3.medium # Damos opciones. 4GB de RAM son necesarios para soportar Prometheus y Loki.
+    desiredCapacity: 2 # Número de nodos iniciales con los que arrancará el clúster.
+    minSize: 2 # Mínimo necesario para alta disponibilidad y para probar las reglas del Cluster Autoscaler (CA).
+    maxSize: 4 # Límite máximo. El CA creará nuevos nodos hasta este tope si el CPU/RAM se agotan.
+    volumeSize: 30 # Aumentado a 30GB. Prometheus y Loki consumen espacio en disco rápidamente.
+    volumeType: gp3 # gp3 es más rápido y económico que gp2 (el valor por defecto).
+    
+    # ======================
+    # Políticas IAM para los Nodos
+    # ======================
+    iam:
+      withAddonPolicies:
+        autoScaler: true 
+        # Da permisos a los nodos para hablar con el Auto Scaling Group de AWS. Requerido para el Cluster Autoscaler (CA).
+        
+        ebs: true 
+        # Permite a los nodos adjuntar y desadjuntar discos EBS. Vital para los volúmenes de tus microservicios y bases de datos.
+        
+        cloudWatch: true 
+        # Permite enviar logs de contenedores a CloudWatch (aunque usarás Loki, es buena práctica tener métricas base del clúster).
+        
+# ======================
+# Addons (Complementos nativos de EKS)
+# ======================
+addons:
+  # 1. Controlador de red con las Políticas de Red encendidas
+  - name: vpc-cni
+    attachPolicyARNs:
+      - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+    configurationValues: |-
+      enableNetworkPolicy: "true"
+      
+  # 2. Driver para que puedas crear PersistentVolumes (EBS) dinámicamente
+  - name: aws-ebs-csi-driver
+    # Requiere que en el bloque de arriba (iam) hayas puesto `ebs: true`

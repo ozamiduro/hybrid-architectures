@@ -1,0 +1,1 @@
+Consulta el README principal en la raíz del proyecto para las instrucciones y endpoints.
