@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service-rolling
+  namespace: techstore
+spec:
+  replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: product-service-rolling
+  template:
+    metadata:
+      labels:
+        app: product-service-rolling
+    spec:
+      containers:
+        - name: product-service
+          image: PRODUCT_IMAGE
+          ports:
+            - containerPort: 8081
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: 8081}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}

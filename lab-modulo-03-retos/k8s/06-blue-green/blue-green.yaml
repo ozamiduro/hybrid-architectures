@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-blue
+  namespace: techstore
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: product-blue}
+  template:
+    metadata:
+      labels: {app: product, version: blue}
+    spec:
+      containers:
+        - name: product
+          image: PRODUCT_IMAGE_BLUE
+          ports: [{containerPort: 8081}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-green
+  namespace: techstore
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: product-green}
+  template:
+    metadata:
+      labels: {app: product, version: green}
+    spec:
+      containers:
+        - name: product
+          image: PRODUCT_IMAGE_GREEN
+          ports: [{containerPort: 8081}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-bluegreen
+  namespace: techstore
+spec:
+  selector:
+    app: product
+    version: blue
+  ports:
+    - port: 8081
+      targetPort: 8081

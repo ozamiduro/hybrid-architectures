@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service-taint-demo
+  namespace: techstore
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-service-taint-demo
+  template:
+    metadata:
+      labels:
+        app: product-service-taint-demo
+    spec:
+      tolerations:
+        - key: dedicated
+          operator: Equal
+          value: techstore
+          effect: NoSchedule
+      containers:
+        - name: product-service
+          image: PRODUCT_IMAGE
+          ports:
+            - containerPort: 8081
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 250m, memory: 256Mi}
