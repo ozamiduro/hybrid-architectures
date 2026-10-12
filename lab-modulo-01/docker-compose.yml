@@ -31,6 +31,8 @@ services:
         ipv4_address: 10.20.0.10
       net-onprem:
         ipv4_address: 10.10.0.20
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/v1/health"]
 
   orion-gateway:
     image: nginx:alpine
